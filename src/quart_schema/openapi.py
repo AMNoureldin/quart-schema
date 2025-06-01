@@ -230,7 +230,7 @@ class OpenAPIProvider:
         }
 
     def build_querystring_parameters(
-        self, model: Type[Model]
+            self, model: Type[Model]
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """Build the openapi parameter objects based on the querystring model.
 
@@ -262,7 +262,7 @@ class OpenAPIProvider:
         return parameters, definitions
 
     def build_headers_parameters(
-        self, model: Type[Model]
+            self, model: Type[Model]
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """Build the openapi parameter objects based on the headers model.
 
@@ -292,7 +292,7 @@ class OpenAPIProvider:
         return parameters, definitions
 
     def build_request_body(
-        self, model: Type[Model], source: DataSource
+            self, model: Type[Model], source: DataSource
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Build the openapi request body object based on the model.
 
@@ -310,7 +310,7 @@ class OpenAPIProvider:
             model, preference=self._app.config["QUART_SCHEMA_CONVERSION_PREFERENCE"]
         )
         definitions, schema = _split_convert_definitions(
-            schema, self._app.config["QUART_SCHEMA_CONVERT_CASING"]
+            schema, self._app.config["QUART_SCHEMA_CONVERT_CASING"], extract_component=True
         )
 
         if source == DataSource.JSON:
@@ -330,7 +330,7 @@ class OpenAPIProvider:
         return request_body, definitions
 
     def build_response_object(
-        self, model: Type[Model], headers_model: Optional[Type[Model]]
+            self, model: Type[Model], headers_model: Optional[Type[Model]]
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Build the openapi response object based on the model.
 
@@ -349,7 +349,7 @@ class OpenAPIProvider:
             schema_mode="serialization",
         )
         definitions, schema = _split_convert_definitions(
-            schema, self._app.config["QUART_SCHEMA_CONVERT_CASING"]
+            schema, self._app.config["QUART_SCHEMA_CONVERT_CASING"], extract_component=True
         )
         response_object = {
             "content": {
@@ -590,14 +590,17 @@ class OpenIdSecurityScheme(SecuritySchemeBase):
     type: Literal["openIdConnect"] = "openIdConnect"
 
 
-def _split_definitions(schema: dict) -> Tuple[dict, dict]:
+def _split_definitions(schema: dict, extract_component: bool = False) -> Tuple[dict, dict]:
     new_schema = schema.copy()
     definitions = new_schema.pop("$defs", {})
+    if extract_component and "title" in new_schema:
+        definitions[new_schema["title"]] = new_schema
+        new_schema = {"$ref": f"#/components/schemas/{new_schema['title']}"}
     return definitions, new_schema
 
 
-def _split_convert_definitions(schema: dict, convert_casing: bool) -> Tuple[dict, dict]:
-    definitions, new_schema = _split_definitions(schema)
+def _split_convert_definitions(schema: dict, convert_casing: bool, extract_component: bool = False) -> Tuple[dict, dict]:
+    definitions, new_schema = _split_definitions(schema, extract_component=extract_component)
     if convert_casing:
         new_schema = humps.camelize(new_schema)
         if "required" in new_schema:
